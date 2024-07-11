@@ -1,6 +1,8 @@
 package com.wavecat.outline.utils
 
 import org.luaj.vm2.Globals
+import org.luaj.vm2.LuaNumber
+import org.luaj.vm2.LuaUserdata
 import org.luaj.vm2.LuaValue
 import org.luaj.vm2.Varargs
 import org.luaj.vm2.lib.OneArgFunction
@@ -51,6 +53,19 @@ fun threeArgFunction(body: (arg1: LuaValue, arg2: LuaValue, arg3: LuaValue) -> L
 
 fun varArgFunction(body: (args: Varargs) -> Varargs): LuaValue = object : VarArgFunction() {
     override fun invoke(args: Varargs): Varargs = body(args)
+}
+
+fun <T> Varargs.toList() = buildList {
+    for (n in 1..narg()) {
+        @Suppress("UNCHECKED_CAST")
+        add(arg(n).checkuserdata() as T)
+    }
+}
+
+fun LuaValue.tojstringuserdata() = when (this) {
+    is LuaUserdata -> touserdata().toString()
+    is LuaNumber -> tolong().toString()
+    else -> tojstring()
 }
 
 const val COROUTINE = "coroutine"

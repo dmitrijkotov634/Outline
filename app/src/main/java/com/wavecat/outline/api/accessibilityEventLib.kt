@@ -3,7 +3,7 @@ package com.wavecat.outline.api
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.os.bundleOf
-import com.wavecat.outline.api.locks.EventTypeFilter
+import com.wavecat.outline.api.locks.TypeFilterLock
 import com.wavecat.outline.api.locks.NodeLock
 import com.wavecat.outline.api.locks.PackageNameLock
 import com.wavecat.outline.api.locks.Query
@@ -19,7 +19,7 @@ import org.luaj.vm2.LuaValue
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
 
 private fun eventTypeFunction(eventType: Int) = zeroArgFunction {
-    CoerceJavaToLua.coerce(EventTypeFilter(eventType))
+    CoerceJavaToLua.coerce(TypeFilterLock(eventType))
 }
 
 private fun performActionFunction(action: Int) = oneArgFunction { nodeInfo ->
@@ -91,7 +91,7 @@ fun Globals.installAccessibilityEventLib() {
     })
 
     set("EventType", oneArgFunction { arg ->
-        CoerceJavaToLua.coerce(EventTypeFilter(arg.checkint()))
+        CoerceJavaToLua.coerce(TypeFilterLock(arg.checkint()))
     })
 
     set("WindowContentChanged", eventTypeFunction(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED))
