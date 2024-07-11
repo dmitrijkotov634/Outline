@@ -12,17 +12,18 @@ import com.wavecat.outline.api.installAccessibilityEventLib
 import com.wavecat.outline.api.installAutomationLib
 import com.wavecat.outline.api.installKeyEventLib
 import com.wavecat.outline.api.installUtilsLib
+import com.wavecat.outline.api.locks.utils.AllLock
 import com.wavecat.outline.utils.CustomDebugLib
 import com.wavecat.outline.utils.coroutineCreate
 import com.wavecat.outline.utils.coroutineYield
 import com.wavecat.outline.utils.oneArgFunction
 import com.wavecat.outline.utils.runOnUiThread
+import com.wavecat.outline.utils.toList
+import com.wavecat.outline.utils.tojstringuserdata
 import com.wavecat.outline.utils.twoArgFunction
 import com.wavecat.outline.utils.varArgFunction
 import org.luaj.vm2.Globals
-import org.luaj.vm2.LuaNumber
-import org.luaj.vm2.LuaString
-import org.luaj.vm2.LuaUserdata
+import org.luaj.vm2.LuaError
 import org.luaj.vm2.LuaValue.NIL
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
 import org.luaj.vm2.lib.jse.JsePlatform
@@ -30,6 +31,8 @@ import org.luaj.vm2.lib.jse.JsePlatform
 
 class OutlineService : AccessibilityService() {
     private val debugLib = CustomDebugLib()
+
+    private var scriptContext: Script? = null
 
     private val globals: Globals by lazy {
         JsePlatform.standardGlobals().apply {
@@ -40,8 +43,10 @@ class OutlineService : AccessibilityService() {
             set("service", CoerceJavaToLua.coerce(this))
 
             set("delay", oneArgFunction { arg ->
-                val script = get("context").checkuserdata() as Script
-                script.delay(arg.checklong())
+                if (scriptContext == null)
+                    throw LuaError("scriptContext == null")
+
+                scriptContext?.delay(arg.checklong())
                 NIL
             })
 
@@ -51,7 +56,12 @@ class OutlineService : AccessibilityService() {
 
             installAutomationLib(applicationContext)
 
-            set("waitFor", varArgFunction { args -> coroutineYield(args.arg1()) })
+            set("waitFor", varArgFunction { args ->
+                if (args.narg() == 1)
+                    return@varArgFunction coroutineYield(args.arg1())
+
+                coroutineYield(CoerceJavaToLua.coerce(AllLock(args.toList())))
+            })
 
             set("mediaKeyEvent", twoArgFunction { arg1, arg2 ->
                 val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
@@ -68,12 +78,7 @@ class OutlineService : AccessibilityService() {
                 runOnUiThread {
                     Toast.makeText(
                         applicationContext,
-                        when (arg) {
-                            is LuaUserdata -> arg.checkuserdata().toString()
-                            is LuaString -> arg.checkjstring()
-                            is LuaNumber -> arg.tolong().toString()
-                            else -> ""
-                        },
+                        arg.tojstringuserdata(),
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -106,7 +111,16 @@ class OutlineService : AccessibilityService() {
 
     fun loadScripts() = runCatching {
         debugLib.interrupted = true
-        scripts.forEach { it.resume() }
+
+        scripts.forEach {
+            try {
+                it.destroy()
+                it.resume()
+            } catch (e: CustomDebugLib.ScriptInterruptException) {
+                e.printStackTrace()
+            }
+        }
+
         debugLib.interrupted = false
 
         scripts.clear()
@@ -118,11 +132,13 @@ class OutlineService : AccessibilityService() {
             .forEachIndexed { index, script ->
                 scripts.add(
                     Script(
-                        "script#$index",
-                        globals,
-                        globals.coroutineCreate(
+                        name = "script#$index",
+                        globals = globals,
+                        coroutine = globals.coroutineCreate(
                             globals.load(script, "script#$index")
-                        )
+                        ),
+                        onResume = { scriptContext = it },
+                        onDeath = { scripts.remove(it) }
                     )
                         .apply {
                             resume()

@@ -5,17 +5,11 @@ import com.wavecat.outline.api.locks.utils.AnyLock
 import com.wavecat.outline.api.locks.utils.CombinedLock
 import com.wavecat.outline.api.locks.utils.Lock
 import com.wavecat.outline.api.locks.utils.StepsLock
+import com.wavecat.outline.utils.toList
 import com.wavecat.outline.utils.varArgFunction
 import org.luaj.vm2.Globals
 import org.luaj.vm2.Varargs
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
-
-private fun <T> Varargs.toList() = buildList {
-    for (n in 1..narg()) {
-        @Suppress("UNCHECKED_CAST")
-        add(arg(n).checkuserdata() as T)
-    }
-}
 
 fun Globals.installUtilsLib() {
     set("Steps", varArgFunction { args ->
