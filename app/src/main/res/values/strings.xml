@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Outline</string>
+    <string name="main_service">Main service</string>
+    <string name="window_content_service">Window content service</string>
 </resources>
