@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.wavecat.outline">
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature android:name="android.hardware.fingerprint" />
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAPABILITY_CAN_REQUEST_FINGERPRINT_GESTURES" />
 
     <application
         android:allowBackup="true"
@@ -13,19 +18,29 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Outline"
         tools:targetApi="31">
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
+        <activity
+            android:name=".WebViewActivity"
+            android:exported="true"
+            android:process=":webView"
+            android:theme="@style/Theme.Outline.FullScreen">
+            <intent-filter>
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
         <service
-            android:name=".OutlineService"
+            android:name=".services.OutlineService"
             android:exported="true"
+            android:label="@string/main_service"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
 
             <intent-filter>
@@ -34,8 +49,32 @@
 
             <meta-data
                 android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service" />
+                android:resource="@xml/outline_service" />
         </service>
+
+        <service
+            android:name=".services.WindowContentService"
+            android:exported="true"
+            android:label="@string/window_content_service"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/window_content_service" />
+        </service>
+
+        <receiver
+            android:name=".WebViewActivity$CommandReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.wavecat.outline.SEND_CLICK" />
+                <action android:name="com.wavecat.outline.SET_WEBVIEW_SIZE" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
