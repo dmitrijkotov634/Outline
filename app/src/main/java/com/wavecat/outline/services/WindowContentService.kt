@@ -37,7 +37,7 @@ class WindowContentService : AccessibilityService() {
         val service = OutlineService.instance ?: return
 
         if (event?.source != null)
-            service.notifyAccessibilityEvent(event)
+            service.onAccessibilityEvent(event)
     }
 
     companion object {

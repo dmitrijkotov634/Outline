@@ -27,7 +27,6 @@ fun Globals.coroutineCreate(value: LuaValue): LuaValue = get(COROUTINE)
     .get(CREATE)
     .call(value)
 
-
 fun Globals.coroutineStatus(value: LuaValue): String = get(COROUTINE)
     .get(STATUS)
     .call(value)
@@ -62,7 +61,7 @@ fun <T> Varargs.toList() = buildList {
     }
 }
 
-fun LuaValue.tojstringuserdata() = when (this) {
+fun LuaValue.toStringUserdata(): String = when (this) {
     is LuaUserdata -> touserdata().toString()
     is LuaNumber -> tolong().toString()
     else -> tojstring()

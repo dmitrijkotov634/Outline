@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val service = OutlineService.instance
+
             if (service == null) {
                 val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK

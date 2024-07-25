@@ -2,7 +2,7 @@ package com.wavecat.outline.api
 
 import android.view.KeyEvent
 import com.wavecat.outline.api.locks.IgnoreKeyEvent
-import com.wavecat.outline.api.locks.WaitKeyLock
+import com.wavecat.outline.api.locks.KeyEventLock
 import com.wavecat.outline.api.locks.utils.StepsLock
 import com.wavecat.outline.utils.coroutineYield
 import com.wavecat.outline.utils.toIntOrNull
@@ -22,8 +22,8 @@ private fun keyClickFunction(count: Int) =
                         add(
                             StepsLock(
                                 locks = listOf(
-                                    WaitKeyLock(keyCode, KeyEvent.ACTION_DOWN),
-                                    WaitKeyLock(keyCode, KeyEvent.ACTION_UP)
+                                    KeyEventLock(keyCode, KeyEvent.ACTION_DOWN),
+                                    KeyEventLock(keyCode, KeyEvent.ACTION_UP)
                                 ),
                                 interval = interval
                             )
@@ -46,7 +46,7 @@ fun Globals.installKeyEventLib() {
 
     set("Key", varArgFunction { args ->
         CoerceJavaToLua.coerce(
-            WaitKeyLock(
+            KeyEventLock(
                 nextKeyCode = args.arg1().toIntOrNull(),
                 nextAction = args.arg(2).toIntOrNull(),
             )

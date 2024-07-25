@@ -23,12 +23,17 @@ fun AccessibilityNodeInfo.findNode(query: Query): AccessibilityNodeInfo? {
     repeat(childCount) { index ->
         val node = getChild(index) ?: return@repeat
 
+        node.refresh()
+
         if (node.childCount != 0) {
             val result = node.findNode(query)
 
             if (result != null)
                 return result
         }
+
+        if (node.text != null)
+        println(node.text)
 
         if (!node.matchesQuery(query))
             return@repeat
@@ -56,9 +61,19 @@ fun AccessibilityNodeInfo.matchesQuery(query: Query): Boolean {
     return true
 }
 
-class NodeLock(private val query: Query) : Lock() {
-    override fun tryUnlock(accessibilityEvent: AccessibilityEvent): Boolean =
-        accessibilityEvent.source?.findNode(query) != null
+class NodeLock(private val query: Query, private val fromRoot: Boolean = false) : Lock() {
+    override fun tryUnlock(accessibilityEvent: AccessibilityEvent): Boolean {
+        if (fromRoot) {
+            var root: AccessibilityNodeInfo? = accessibilityEvent.source
+
+            while (root?.parent != null)
+                root = root.parent
+
+            return root?.findNode(query) != null
+        }
+
+        return accessibilityEvent.source?.findNode(query) != null
+    }
 }
 
 data class Query(

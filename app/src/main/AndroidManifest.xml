@@ -23,6 +23,7 @@
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -31,7 +32,9 @@
             android:name=".WebViewActivity"
             android:exported="true"
             android:process=":webView"
-            android:theme="@style/Theme.Outline.FullScreen">
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Outline.FullScreen"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
             <intent-filter>
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
@@ -71,8 +74,7 @@
             android:name=".WebViewActivity$CommandReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.wavecat.outline.SEND_CLICK" />
-                <action android:name="com.wavecat.outline.SET_WEBVIEW_SIZE" />
+                <action android:name="com.wavecat.outline.SEND_COMMAND" />
             </intent-filter>
         </receiver>
     </application>
