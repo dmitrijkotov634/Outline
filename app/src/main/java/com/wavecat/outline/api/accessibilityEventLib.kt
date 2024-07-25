@@ -3,10 +3,10 @@ package com.wavecat.outline.api
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.os.bundleOf
-import com.wavecat.outline.api.locks.TypeFilterLock
 import com.wavecat.outline.api.locks.NodeLock
-import com.wavecat.outline.api.locks.PackageNameLock
 import com.wavecat.outline.api.locks.Query
+import com.wavecat.outline.api.locks.filter.EventTypeLock
+import com.wavecat.outline.api.locks.filter.PackageNameLock
 import com.wavecat.outline.api.locks.findAllNodes
 import com.wavecat.outline.api.locks.findNode
 import com.wavecat.outline.utils.oneArgFunction
@@ -19,7 +19,7 @@ import org.luaj.vm2.LuaValue
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
 
 private fun eventTypeFunction(eventType: Int) = zeroArgFunction {
-    CoerceJavaToLua.coerce(TypeFilterLock(eventType))
+    CoerceJavaToLua.coerce(EventTypeLock(eventType))
 }
 
 private fun performActionFunction(action: Int) = oneArgFunction { nodeInfo ->
@@ -43,15 +43,8 @@ fun Globals.installAccessibilityEventLib() {
         if (i.name.startsWith("TYPE_"))
             set(i.name.substring(5), i.getInt(null))
 
-    set("Node", oneArgFunction { arg -> CoerceJavaToLua.coerce(NodeLock(buildNodeQuery(arg))) })
-
-    set("findRoot", oneArgFunction { event ->
-        var root: AccessibilityNodeInfo? = (event.checkuserdata() as AccessibilityEvent).source
-
-        while (root?.parent != null)
-            root = root.parent
-
-        CoerceJavaToLua.coerce(root)
+    set("Node", twoArgFunction { arg, fromRoot ->
+        CoerceJavaToLua.coerce(NodeLock(buildNodeQuery(arg), fromRoot.optboolean(false)))
     })
 
     set("findNode", twoArgFunction { nodeInfoArg, query ->
@@ -91,7 +84,7 @@ fun Globals.installAccessibilityEventLib() {
     })
 
     set("EventType", oneArgFunction { arg ->
-        CoerceJavaToLua.coerce(TypeFilterLock(arg.checkint()))
+        CoerceJavaToLua.coerce(EventTypeLock(arg.checkint()))
     })
 
     set("WindowContentChanged", eventTypeFunction(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED))

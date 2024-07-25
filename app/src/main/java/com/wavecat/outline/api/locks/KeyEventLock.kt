@@ -3,7 +3,7 @@ package com.wavecat.outline.api.locks
 import android.view.KeyEvent
 import com.wavecat.outline.api.locks.utils.Lock
 
-class WaitKeyLock(
+class KeyEventLock(
     private val nextKeyCode: Int?,
     private val nextAction: Int?,
 ) : Lock() {

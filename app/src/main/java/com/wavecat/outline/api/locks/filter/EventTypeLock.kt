@@ -1,9 +1,9 @@
-package com.wavecat.outline.api.locks
+package com.wavecat.outline.api.locks.filter
 
 import android.view.accessibility.AccessibilityEvent
 import com.wavecat.outline.api.locks.utils.Lock
 
-class PackageNameLock(private val pkgName: String) : Lock() {
+class EventTypeLock(private val eventType: Int) : Lock() {
     override fun tryUnlock(accessibilityEvent: AccessibilityEvent): Boolean =
-        accessibilityEvent.packageName == pkgName
+        accessibilityEvent.eventType == eventType
 }

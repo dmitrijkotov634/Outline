@@ -14,6 +14,7 @@ import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
@@ -36,21 +37,37 @@ class WebViewActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val mainActivity = context as? WebViewActivity
 
-            when (intent?.action) {
-                SEND_CLICK -> {
-                    val x = intent.getFloatExtra("x", -1f)
-                    val y = intent.getFloatExtra("y", -1f)
+            if (intent?.action != SEND_COMMAND_ACTION)
+                return
+
+            when (intent.getStringExtra(COMMAND_NAME_ARG)) {
+                WEBVIEW_CLICK_COMMAND -> {
+                    val x = intent.getFloatExtra(X_ARG, -1f)
+                    val y = intent.getFloatExtra(Y_ARG, -1f)
 
                     if (x != -1f && y != -1f)
                         mainActivity?.webviewSendClick(x, y)
                 }
 
-                SET_WEBVIEW_SIZE -> {
-                    val width = intent.getIntExtra("width", -1)
-                    val height = intent.getIntExtra("height", -1)
+                SET_WEBVIEW_SIZE_COMMAND -> {
+                    val width = intent.getIntExtra(WIDTH_ARG, -1)
+                    val height = intent.getIntExtra(HEIGHT_ARG, -1)
 
                     if (width != -1)
                         mainActivity?.setWebViewSize(width, height.takeIf { it != -1 })
+                }
+
+                CLEAR_WEBVIEW_DATA_COMMAND -> {
+                    mainActivity?.clearWebViewData()
+                }
+
+                OPEN_URL_COMMAND -> {
+                    intent.getStringExtra(URL_ARG)?.let {
+                        mainActivity?.openUrl(it)
+                        mainActivity?.binding?.debugText?.let { it1 ->
+                            it1.text = it
+                        }
+                    }
                 }
             }
         }
@@ -69,6 +86,8 @@ class WebViewActivity : AppCompatActivity() {
             javaScriptEnabled = true
             allowContentAccess = true
             domStorageEnabled = true
+            userAgentString =
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0"
         }
 
         cookieManager.setAcceptCookie(true)
@@ -121,8 +140,7 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         val filter = IntentFilter().apply {
-            addAction(SEND_CLICK)
-            addAction(SET_WEBVIEW_SIZE)
+            addAction(SEND_COMMAND_ACTION)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -160,6 +178,26 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
+    fun clearWebViewData() {
+        WebStorage.getInstance().deleteAllData()
+
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+
+        binding.webview.apply {
+            clearCache(true)
+            clearFormData()
+            clearHistory()
+            clearMatches()
+            clearSslPreferences()
+        }
+
+        deleteDatabase("webview.db")
+        deleteDatabase("webviewCache.db")
+
+        cacheDir.deleteRecursively()
+    }
+
     fun webviewSendClick(x: Float, y: Float) {
         val downTime = System.currentTimeMillis()
         val eventTime = System.currentTimeMillis()
@@ -189,6 +227,10 @@ class WebViewActivity : AppCompatActivity() {
         upEvent.recycle()
     }
 
+    fun openUrl(url: String) {
+        binding.webview.loadUrl(url)
+    }
+
     private fun createAccessibilityEvent() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         AccessibilityEvent()
     } else {
@@ -202,10 +244,21 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     companion object {
-        const val SEND_CLICK = "com.wavecat.outline.SEND_CLICK"
-        const val SET_WEBVIEW_SIZE = "com.wavecat.outline.SET_WEBVIEW_SIZE"
+        const val SEND_COMMAND_ACTION = "com.wavecat.outline.SEND_COMMAND"
 
-        const val PAGE_LOADED_ANNOUNCEMENT = "pageLoaded"
-        const val READY_ANNOUNCEMENT = "ready"
+        const val COMMAND_NAME_ARG = "command_name"
+        const val URL_ARG = "url"
+        const val WIDTH_ARG = "width"
+        const val HEIGHT_ARG = "height"
+        const val X_ARG = "x"
+        const val Y_ARG = "y"
+
+        const val WEBVIEW_CLICK_COMMAND = "WEBVIEW_CLICK"
+        const val SET_WEBVIEW_SIZE_COMMAND = "SET_WEBVIEW_SIZE"
+        const val CLEAR_WEBVIEW_DATA_COMMAND = "CLEAR_WEBVIEW_DATA"
+        const val OPEN_URL_COMMAND = "OPEN_URL"
+
+        const val PAGE_LOADED_ANNOUNCEMENT = "PAGE_LOADED"
+        const val READY_ANNOUNCEMENT = "READY"
     }
 }

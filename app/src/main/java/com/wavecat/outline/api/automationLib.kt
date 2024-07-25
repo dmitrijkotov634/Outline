@@ -6,15 +6,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
-import android.view.accessibility.AccessibilityEvent
-import android.widget.Toast
 import com.wavecat.outline.WebViewActivity
-import com.wavecat.outline.api.locks.InternalAnnouncementLock
-import com.wavecat.outline.api.locks.PackageNameLock
-import com.wavecat.outline.api.locks.Query
-import com.wavecat.outline.api.locks.utils.Lock
-import com.wavecat.outline.utils.coroutineYield
+import com.wavecat.outline.api.locks.InternalAnnouncement
+import com.wavecat.outline.api.locks.filter.PackageNameLock
 import com.wavecat.outline.utils.oneArgFunction
 import com.wavecat.outline.utils.runOnUiThread
 import com.wavecat.outline.utils.toIntOrNull
@@ -44,20 +38,55 @@ fun Globals.installAutomationLib(context: Context) {
         NIL
     })
 
-    set("openInWebView", oneArgFunction { url ->
+    set("openWebView", oneArgFunction { url ->
         val i = Intent(context, WebViewActivity::class.java)
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        i.putExtra("url", url.checkjstring())
+
+        if (url.isstring())
+            i.putExtra("url", url.checkjstring())
+
         context.startActivity(i)
-        CoerceJavaToLua.coerce(InternalAnnouncementLock(WebViewActivity.READY_ANNOUNCEMENT))
+        CoerceJavaToLua.coerce(InternalAnnouncement(WebViewActivity.READY_ANNOUNCEMENT))
     })
 
-    set("webViewSetSize", twoArgFunction { width, height ->
+    set("openUrl", oneArgFunction { url ->
         runOnUiThread {
             val intent = Intent().apply {
-                action = WebViewActivity.SET_WEBVIEW_SIZE
-                putExtra("width", width.checkint())
-                putExtra("height", height.toIntOrNull())
+                action = WebViewActivity.SEND_COMMAND_ACTION
+                putExtra(WebViewActivity.COMMAND_NAME_ARG, WebViewActivity.OPEN_URL_COMMAND)
+                putExtra(WebViewActivity.URL_ARG, url.checkjstring())
+            }
+            intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+            context.sendBroadcast(intent)
+        }
+
+        NIL
+    })
+
+    set("clearWebViewData", zeroArgFunction {
+        runOnUiThread {
+            val intent = Intent().apply {
+                action = WebViewActivity.SEND_COMMAND_ACTION
+                putExtra(
+                    WebViewActivity.COMMAND_NAME_ARG,
+                    WebViewActivity.CLEAR_WEBVIEW_DATA_COMMAND
+                )
+            }
+
+            intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+            context.sendBroadcast(intent)
+        }
+
+        NIL
+    })
+
+    set("setWebViewSize", twoArgFunction { width, height ->
+        runOnUiThread {
+            val intent = Intent().apply {
+                action = WebViewActivity.SEND_COMMAND_ACTION
+                putExtra(WebViewActivity.COMMAND_NAME_ARG, WebViewActivity.SET_WEBVIEW_SIZE_COMMAND)
+                putExtra(WebViewActivity.WIDTH_ARG, width.checkint())
+                putExtra(WebViewActivity.HEIGHT_ARG, height.toIntOrNull())
             }
             intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             context.sendBroadcast(intent)
@@ -69,9 +98,10 @@ fun Globals.installAutomationLib(context: Context) {
     set("webViewClick", twoArgFunction { x, y ->
         runOnUiThread {
             val intent = Intent().apply {
-                action = WebViewActivity.SEND_CLICK
-                putExtra("x", x.checkint().toFloat())
-                putExtra("y", y.checkint().toFloat())
+                action = WebViewActivity.SEND_COMMAND_ACTION
+                putExtra(WebViewActivity.COMMAND_NAME_ARG, WebViewActivity.WEBVIEW_CLICK_COMMAND)
+                putExtra(WebViewActivity.X_ARG, x.checkint().toFloat())
+                putExtra(WebViewActivity.Y_ARG, y.checkint().toFloat())
             }
             intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             context.sendBroadcast(intent)
@@ -80,51 +110,12 @@ fun Globals.installAutomationLib(context: Context) {
         NIL
     })
 
-    set("runDebugLogger", oneArgFunction { packageName ->
-        coroutineYield(CoerceJavaToLua.coerce(object : Lock() {
-            override fun tryUnlock(accessibilityEvent: AccessibilityEvent): Boolean {
-                if (accessibilityEvent.packageName != packageName.optjstring(context.packageName))
-                    return false
-
-                if (accessibilityEvent.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-                    accessibilityEvent.source?.apply {
-                        val query = Query(
-                            viewIdResourceName = viewIdResourceName,
-                            className = className,
-                            text = text,
-                            isFocusable = isFocusable,
-                            isFocused = isFocused,
-                            contentDescription = contentDescription,
-                            hintText = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) hintText else ""
-                        )
-
-                        runOnUiThread {
-                            Toast.makeText(context, query.toString(), Toast.LENGTH_SHORT).show()
-
-                            clipboardManager.setPrimaryClip(
-                                ClipData.newHtmlText(
-                                    "outline",
-                                    query.toString(),
-                                    query.toString()
-                                )
-                            )
-                        }
-                    }
-                }
-
-                return false
-            }
-        }))
-
-        NIL
-    })
-
     set("WebViewReady", zeroArgFunction {
-        CoerceJavaToLua.coerce(InternalAnnouncementLock(WebViewActivity.READY_ANNOUNCEMENT))
+        CoerceJavaToLua.coerce(InternalAnnouncement(WebViewActivity.READY_ANNOUNCEMENT))
     })
 
     set("PageLoaded", zeroArgFunction {
-        CoerceJavaToLua.coerce(InternalAnnouncementLock(WebViewActivity.PAGE_LOADED_ANNOUNCEMENT))
+        CoerceJavaToLua.coerce(InternalAnnouncement(WebViewActivity.PAGE_LOADED_ANNOUNCEMENT))
     })
 
     set("IsChrome", zeroArgFunction {

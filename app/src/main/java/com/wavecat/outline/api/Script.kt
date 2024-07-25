@@ -13,34 +13,42 @@ import org.luaj.vm2.LuaError
 import org.luaj.vm2.LuaString
 import org.luaj.vm2.LuaUserdata
 import org.luaj.vm2.LuaValue
+import org.luaj.vm2.Varargs
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
 import java.util.Timer
 import kotlin.concurrent.timerTask
 
 class Script(
-    private val name: String,
+    val name: String,
     private val globals: Globals,
     private val coroutine: LuaValue,
     private var onResume: (Script) -> Unit,
-    private var onDeath: (Script) -> Unit,
+    private var onRecycle: (Script) -> Unit,
     private var lock: Lock? = null,
 ) {
     private var timer: Timer = Timer()
+
+    var latestKeyEvent: KeyEvent? = null
+    var latestAccessibilityEvent: AccessibilityEvent? = null
+
+    fun resumeCoroutine(throwErrors: Boolean = true): Varargs {
+        val result = globals.coroutineResume(coroutine)
+
+        if (throwErrors && !result.arg(1).optboolean(true)) {
+            recycle()
+            onRecycle(this)
+            throw LuaError(result.arg(2))
+        }
+
+        return result
+    }
 
     fun resume(): Boolean {
         onResume(this)
 
         Log.i(TAG, "$name resumed")
 
-        val result = globals.coroutineResume(coroutine)
-
-        if (!result.arg(1).optboolean(true)) {
-            destroy()
-            onDeath(this)
-            return false
-        }
-
-        when (val value = result.arg(2)) {
+        when (val value = resumeCoroutine().arg(2)) {
             is LuaString -> throw LuaError(value)
             is LuaUserdata -> {
                 val resultLock = value.touserdata()
@@ -65,25 +73,31 @@ class Script(
         Log.i(TAG, "$name start $interval delay")
 
         timer.schedule(timerTask {
-            runOnUiThread { resume() }
+            runOnUiThread {
+                resume()
+            }
         }, interval)
 
         globals.coroutineYield(CoerceJavaToLua.coerce(Lock()))
     }
 
-    fun notifyAccessibilityEvent(accessibilityEvent: AccessibilityEvent) {
-        if (lock?.tryUnlock(accessibilityEvent) == true)
+    fun onAccessibilityEvent(accessibilityEvent: AccessibilityEvent) {
+        if (lock?.tryUnlock(accessibilityEvent) == true) {
+            latestAccessibilityEvent = accessibilityEvent
             resume()
+        }
     }
 
-    fun notifyKeyEvent(event: KeyEvent): Boolean {
-        if (lock?.tryUnlock(event) == true)
+    fun onKeyEvent(event: KeyEvent): Boolean {
+        if (lock?.tryUnlock(event) == true) {
+            latestKeyEvent = event
             return resume()
+        }
 
         return false
     }
 
-    fun destroy() {
+    fun recycle() {
         timer.cancel()
         timer.purge()
     }
