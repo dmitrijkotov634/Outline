@@ -40,11 +40,25 @@ fun Globals.installKeyEventLib() {
         if (i.name.startsWith("KEYCODE_"))
             set(i.name.substring(8), i.getInt(null))
 
+    set("SingleClick", twoArgFunction { keyCodeArg, intervalArg ->
+        val keyCode = keyCodeArg.checkint()
+        val interval = intervalArg.optlong(700)
+        CoerceJavaToLua.coerce(
+            StepsLock(
+                locks = listOf(
+                    KeyEventLock(keyCode, KeyEvent.ACTION_DOWN),
+                    KeyEventLock(keyCode, KeyEvent.ACTION_UP)
+                ),
+                interval = interval
+            )
+        )
+    })
+
     set("DoubleClick", keyClickFunction(2))
     set("TripleClick", keyClickFunction(3))
     set("QuadrupleClick", keyClickFunction(4))
 
-    set("Key", varArgFunction { args ->
+    set("KeyEvent", varArgFunction { args ->
         CoerceJavaToLua.coerce(
             KeyEventLock(
                 nextKeyCode = args.arg1().toIntOrNull(),

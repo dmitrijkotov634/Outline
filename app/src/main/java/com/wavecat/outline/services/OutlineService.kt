@@ -2,7 +2,9 @@ package com.wavecat.outline.services
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.media.AudioManager
+import android.annotation.SuppressLint
+import android.os.Build
+import android.speech.tts.TextToSpeech
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -12,6 +14,7 @@ import com.wavecat.outline.api.Script
 import com.wavecat.outline.api.installAccessibilityEventLib
 import com.wavecat.outline.api.installAutomationLib
 import com.wavecat.outline.api.installKeyEventLib
+import com.wavecat.outline.api.installMediaLib
 import com.wavecat.outline.api.installUtilsLib
 import com.wavecat.outline.api.locks.utils.AllLock
 import com.wavecat.outline.api.locks.utils.Lock
@@ -33,11 +36,20 @@ import org.luaj.vm2.lib.jse.CoerceJavaToLua
 import org.luaj.vm2.lib.jse.JsePlatform
 
 
+@SuppressLint("AccessibilityPolicy")
 class OutlineService : AccessibilityService() {
     private val preferences by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
 
     private val debugLib = CustomDebugLib()
     private var scriptContext: Script? = null
+
+    private val tts: TextToSpeech by lazy {
+        TextToSpeech(applicationContext) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts.language = java.util.Locale.getDefault()
+            }
+        }
+    }
 
     private val globals: Globals by lazy {
         JsePlatform.standardGlobals().apply {
@@ -60,6 +72,7 @@ class OutlineService : AccessibilityService() {
             installAccessibilityEventLib()
             installUtilsLib()
             installKeyEventLib()
+            installMediaLib(this@OutlineService)
 
             installAutomationLib(applicationContext)
 
@@ -108,14 +121,22 @@ class OutlineService : AccessibilityService() {
                 CoerceJavaToLua.coerce(scriptContext?.latestKeyEvent)
             })
 
-            set("mediaKeyEvent", twoArgFunction { arg1, arg2 ->
-                val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-                audioManager.dispatchMediaKeyEvent(KeyEvent(arg1.checkint(), arg2.checkint()))
+            set("perform", oneArgFunction { arg ->
+                performGlobalAction(arg.checkint())
                 NIL
             })
 
-            set("perform", oneArgFunction { arg ->
-                performGlobalAction(arg.checkint())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                set("takeScreenshot", zeroArgFunction {
+                    performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT)
+                    NIL
+                })
+            }
+
+            set("vibrate", oneArgFunction { duration ->
+                val vibrator = getSystemService(VIBRATOR_SERVICE) as android.os.Vibrator
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(duration.checklong())
                 NIL
             })
 
@@ -127,6 +148,16 @@ class OutlineService : AccessibilityService() {
                         Toast.LENGTH_SHORT
                     ).show()
                 }
+                NIL
+            })
+
+            set("speak", twoArgFunction { text, queueMode ->
+                val mode = when (queueMode.optjstring("add")) {
+                    "flush" -> TextToSpeech.QUEUE_FLUSH
+                    else -> TextToSpeech.QUEUE_ADD
+                }
+
+                tts.speak(text.checkjstring(), mode, null, null)
                 NIL
             })
 
@@ -156,22 +187,25 @@ class OutlineService : AccessibilityService() {
     }
 
     fun loadScripts() = runCatching {
-        destroyScripts()
+        interruptScripts()
 
         val code = preferences.getString("script", "")
 
         code!!
             .split("-----\n")
-            .forEachIndexed { index, script -> runScript(globals.load(script, "#$index")) }
+            .forEachIndexed { index, script ->
+                runScript(globals.load(script, "#$index"))
+            }
     }
         .onFailure {
             notifyError(it)
         }
 
-    private fun destroyScripts() = debugLib.apply {
+    private fun interruptScripts() = debugLib.apply {
         interrupted = true
 
         scripts.forEach {
+            it.recycle()
             it.resumeCoroutine(false)
         }
 
@@ -213,7 +247,7 @@ class OutlineService : AccessibilityService() {
 
     override fun onInterrupt() {
         instance = null
-        destroyScripts()
+        interruptScripts()
     }
 
     override fun onKeyEvent(event: KeyEvent?): Boolean {

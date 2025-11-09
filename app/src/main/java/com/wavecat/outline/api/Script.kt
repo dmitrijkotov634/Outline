@@ -72,11 +72,14 @@ class Script(
     fun delay(interval: Long) {
         Log.i(TAG, "$name start $interval delay")
 
-        timer.schedule(timerTask {
-            runOnUiThread {
-                resume()
-            }
-        }, interval)
+        timer.schedule(
+            timerTask {
+                runOnUiThread {
+                    resume()
+                }
+            },
+            interval
+        )
 
         globals.coroutineYield(CoerceJavaToLua.coerce(Lock()))
     }

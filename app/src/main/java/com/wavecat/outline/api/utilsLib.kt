@@ -8,7 +8,6 @@ import com.wavecat.outline.api.locks.utils.StepsLock
 import com.wavecat.outline.utils.toList
 import com.wavecat.outline.utils.varArgFunction
 import org.luaj.vm2.Globals
-import org.luaj.vm2.Varargs
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
 
 fun Globals.installUtilsLib() {

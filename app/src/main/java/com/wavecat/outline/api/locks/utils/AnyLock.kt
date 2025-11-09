@@ -5,10 +5,8 @@ import android.view.accessibility.AccessibilityEvent
 
 
 class AnyLock(
-    private val locks: List<Lock>
+    private val locks: List<Lock>,
 ) : Lock() {
-    constructor(vararg locks: Lock) : this(locks.toList())
-
     override fun tryUnlock(event: KeyEvent): Boolean =
         locks.any { it.tryUnlock(event) == true }
 
